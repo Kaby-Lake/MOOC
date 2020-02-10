@@ -143,20 +143,22 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  int Not_xANDy = (~x) & y;
+  int xANDNot_y = x & (~y);
+  return ~((~Not_xANDy) & (~xANDNot_y));
+  
 }
 /* 
- * tmin - return minimum two's complement integer 
+ * tmin - return minimum two's complement integer
  *   Legal ops: ! ~ & ^ | + << >>
  *   Max ops: 4
  *   Rating: 1
  */
 int tmin(void) {
 
-  return 2;
+  return 1 << 31;
 
 }
-//2
 /*
  * isTmax - returns 1 if x is the maximum, two's complement number,
  *     and 0 otherwise 
@@ -165,7 +167,7 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  return !bitXor(0x7FFFFFFF, x);
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +178,7 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  return !bitXor(0x55555555, x);
 }
 /* 
  * negate - return -x 
@@ -186,7 +188,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x + 1;
 }
 //3
 /* 
@@ -199,7 +201,8 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  // 思路：x需要>=’0’且<=’9’，将x与临界点作差，然后判断符号位的为0还是1即可
+  return (!((x+~0x30+1)>>31))&!!((x+~0x3A+1)>>31);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,9 +212,11 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  // 当x不为0，即t=0时，需要t转换为0xffffffff（-1），当t=1时，需要将t转换为0x0
+  // 将t-1即可，得到空1为“!x+~1+1”，同理空2为“~!x+1”
+  return ((!x + ~1 + 1) & y) + ((~!x + 1) & z);
 }
-/* 
+/*
  * isLessOrEqual - if x <= y  then return 1, else return 0 
  *   Example: isLessOrEqual(4,5) = 1.
  *   Legal ops: ! ~ & ^ | + << >>
@@ -219,7 +224,7 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  return !((x + ~y + 1) >> 31);
 }
 //4
 /* 
@@ -231,7 +236,10 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  // 令y=~x+1，考虑x与y的符号位：当x为0时，两者符号位都为0；当x=0x8000 0000时，两者符号位都为1；否则，两者符号位为01或10；根据离散数学的真值表得出(~x)&(~y).
+  int y = (~x + 1);
+  return((~x & ~y) >> 31) & 1;
+      //~(x | y)
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -246,7 +254,27 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  int shift1, shift2, shift4, shift8, shift16;
+  int sum;
+  int t = ((!x)<<31)>>31;     //x为0时，t（二进制）全为1，x不为0时，全为1
+  int t2 = ((!~x)<<31)>>31;   //当x为-1时，t2全为1，否则，全为0
+  //printf("x=%x\n",x);
+  int op = x ^ (x >> 31);     //正数不变，负数取反
+  //printf("op=%x\n!!(op>>16)=%x\n",op,!!(op>>16));
+  shift16 = (!!(op >> 16)) << 4;    //如果高十六位全为0，则0左移4位，不全为0，则1左移4（表示op要右移2^4位）位
+  op = op >> shift16;
+  shift8 = (!!(op >> 8)) << 3;
+  op = op >> shift8;
+  shift4 = (!!(op >> 4)) << 2;
+  op=op>>shift4;
+  shift2 = (!!(op >> 2)) << 1;
+  op = op >> shift2;
+  shift1 = (!!(op >> 1));
+  op = op >> shift1;
+  //printf("shift16=%x shift8=%x shift4=%x shift2=%xshift1=%x\n",shift16,shift8,shift4,shift2,shift1);
+  sum = 2 + shift16 + shift8 + shift4 + shift2 + shift1;
+  //printf("t=%x sum=%x\n",t,sum);
+  return (t2 & 1) | ((~t2) & ((t & 1) | ((~t) & sum)));
 }
 //float
 /* 
